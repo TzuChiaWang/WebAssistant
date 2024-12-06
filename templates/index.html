@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人助手</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container index-container">
+        <h1>個人助手</h1>
+        <div class="row">
+            <!-- 功能按鈕 -->
+            <div class="col-md-6">
+                <a href="/code" class="btn">程式碼管理</a>
+            </div>
+            <div class="col-md-6">
+                <a href="/memo" class="btn">備忘錄</a>
+            </div>
+            <div class="col-md-6">
+                <a href="/projects" class="btn">專案管理</a>
+            </div>
+            <div class="col-md-6">
+                <a href="/photos" class="btn">相片管理</a>
+            </div>
+        </div>
+        <!-- 表單操作 -->
+        <form action="/reset" method="post">
+            <button type="submit">重置資料庫</button>
+            <a href="{{ url_for('logout') }}">登出</a>
+        </form>
+    </div>
+</body>
+</html>

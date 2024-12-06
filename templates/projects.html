@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}專案管理{% endblock %}
+
+{% block content %}
+<h1>專案管理</h1>
+<form action="/projects" method="post">
+    <input type="text" name="name" placeholder="專案名稱" required>
+    <textarea name="description" placeholder="專案描述"></textarea>
+    <input type="text" name="status" placeholder="狀態" value="待開始">
+    <button type="submit">新增專案</button>
+</form>
+<ul>
+    {% for project in projects %}
+    <li>
+        {{ project.name }} - {{ project.description }} - {{ project.status }}
+        <form action="{{ url_for('delete_project', id=project.id) }}" method="post" class="delete-form">
+            <button type="submit">刪除</button>
+        </form>
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}註冊{% endblock %}
+
+{% block content %}
+<h1>註冊</h1>
+<form action="/register" method="post">
+    <input type="text" name="username" placeholder="使用者名稱" required>
+    <input type="password" name="password" placeholder="密碼" required>
+    <button type="submit">註冊</button>
+</form>
+<p>已經有帳號了嗎？<a href="/login">登入</a></p>
+{% endblock %}

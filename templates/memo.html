@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}備忘錄管理{% endblock %}
+
+{% block content %}
+<h1>備忘錄管理</h1>
+<form action="/memo" method="post">
+    <textarea name="content" placeholder="新增備忘內容" required></textarea>
+    <button type="submit">新增</button>
+</form>
+<ul>
+    {% for memo in memos %}
+    <li>
+        {{ memo.content }} - {{ memo.timestamp }}
+        <form action="{{ url_for('delete_memo', id=memo.id) }}" method="post" class="delete-form">
+            <button type="submit">刪除</button>
+        </form>
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}
