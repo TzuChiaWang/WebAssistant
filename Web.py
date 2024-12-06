@@ -1,4 +1,5 @@
 import shutil
+from dotenv import load_dotenv
 from flask import (
     Flask,
     request,
@@ -24,11 +25,8 @@ app.config["UPLOAD_FOLDER"] = "uploads"
 app.secret_key = "supersecretkey"
 db = SQLAlchemy(app)
 
-os.environ["GOOGLE_CLIENT_ID"] = (
-    "570976546240-tmdipn6vt5b1nhb0brgr7lofih6pv0nu.apps.googleusercontent.com"
-)
-os.environ["GOOGLE_CLIENT_SECRET"] = "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t"
-
+# 載入環境變數
+load_dotenv()
 # 配置 OAuth
 oauth = OAuth(app)
 google = oauth.register(
