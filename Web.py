@@ -1,3 +1,4 @@
+import shutil
 from flask import (
     Flask,
     request,
@@ -15,25 +16,31 @@ from authlib.integrations.flask_client import OAuth
 import os
 from datetime import datetime
 
+
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///personal_assistant.db"
+app.config.from_object("config.Config")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["UPLOAD_FOLDER"] = "uploads"
 app.secret_key = "supersecretkey"
 db = SQLAlchemy(app)
 
+os.environ["GOOGLE_CLIENT_ID"] = (
+    "570976546240-tmdipn6vt5b1nhb0brgr7lofih6pv0nu.apps.googleusercontent.com"
+)
+os.environ["GOOGLE_CLIENT_SECRET"] = "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t"
+
 # 配置 OAuth
 oauth = OAuth(app)
 google = oauth.register(
     name="google",
-    client_id="YOUR_GOOGLE_CLIENT_ID",
-    client_secret="YOUR_GOOGLE_CLIENT_SECRET",
+    client_id=os.getenv("GOOGLE_CLIENT_ID", "default_client_id"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET", "default_client_secret"),
     access_token_url="https://accounts.google.com/o/oauth2/token",
     authorize_url="https://accounts.google.com/o/oauth2/auth",
     authorize_params=None,
     authorize_redirect_uri="http://localhost:5000/auth/callback",
     api_base_url="https://www.googleapis.com/oauth2/v1/",
-    client_kwargs={"scope": "openid profile email"},
+    client_kwargs={"scope": "openid email"},
 )
 
 
@@ -50,12 +57,14 @@ class CodeSnippets(db.Model):
     filepath = db.Column(db.String(200), nullable=False)  # 存檔案路徑
     keywords = db.Column(db.String(100), nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
 
 
 class Memo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
 
 
 class Projects(db.Model):
@@ -63,6 +72,7 @@ class Projects(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), default="待開始")
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
 
 
 class Photos(db.Model):
@@ -70,6 +80,7 @@ class Photos(db.Model):
     filename = db.Column(db.String(100), nullable=False)
     path = db.Column(db.String(200), nullable=False)
     category = db.Column(db.String(50), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
 
 
 # 初始化資料庫
@@ -89,6 +100,7 @@ def index():
 @app.route("/login/google")
 def login_google():
     redirect_uri = url_for("auth_callback", _external=True)
+    print("Redirect URI:", redirect_uri)
     return google.authorize_redirect(redirect_uri)
 
 
@@ -119,15 +131,27 @@ def register():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
-        hashed_password = generate_password_hash(password, method="pbkdf2:sha256")
+        if User.query.filter_by(username=username).first():
+            flash("使用者已存在", "error")
+            return redirect(url_for("register"))
 
-        new_user = User(username=username, password=hashed_password)
+        # 創建新使用者
+        new_user = User(username=username, password=password)
         db.session.add(new_user)
         db.session.commit()
 
-        flash("註冊成功！請登入。")
-        return redirect(url_for("login"))
+        # 創建新使用者的資料庫
+        new_db_path = os.path.join(app.instance_path, f"{username}.db")
+        template_db_path = os.path.join(app.instance_path, "template.db")
+        try:
+            shutil.copyfile(template_db_path, new_db_path)
+            app.config["SQLALCHEMY_BINDS"][username] = f"sqlite:///{new_db_path}"
+            flash("註冊成功！", "success")
+        except FileNotFoundError:
+            flash("模板資料庫不存在，請聯繫管理員。", "error")
+            return redirect(url_for("register"))
 
+        return redirect(url_for("login"))
     return render_template("register.html")
 
 
@@ -136,22 +160,44 @@ def login():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
-
-        user = User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password, password):
+        user = User.query.filter_by(username=username, password=password).first()
+        if user:
             session["user_id"] = user.id
-            flash("登入成功！")
+            session["username"] = username
+            flash("登入成功！", "success")
             return redirect(url_for("index"))
-        else:
-            flash("登入失敗，請檢查您的帳號和密碼。")
-
+        flash("登入失敗，請檢查您的帳號和密碼。", "error")
     return render_template("login.html")
+
+
+@app.before_request
+def before_request():
+    if request.endpoint in [
+        "login",
+        "register",
+        "static",
+        "login_google",
+        "auth_callback",
+    ]:
+        return
+    if "username" in session:
+        username = session["username"]
+        if username in app.config["SQLALCHEMY_BINDS"]:
+            app.config["SQLALCHEMY_DATABASE_URI"] = app.config["SQLALCHEMY_BINDS"][
+                username
+            ]
+            db.engine.dispose()  # 重新連接資料庫
+        else:
+            flash("無法找到對應的資料庫。", "error")
+            return redirect(url_for("login"))
+    else:
+        return redirect(url_for("login"))
 
 
 @app.route("/logout")
 def logout():
-    session.pop("user_id", None)
-    flash("您已登出。")
+    session.clear()
+    flash("您已成功登出。", "success")
     return redirect(url_for("login"))
 
 
@@ -163,20 +209,25 @@ def code_management():
         keywords = request.form.get("keywords", "")
         file = request.files["file"]
 
-        # 檢查是否有檔案以及檔案類型是否合法
         if file and allowed_file(file.filename):
             filename = file.filename
             filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            file.save(filepath)  # 儲存檔案
+            file.save(filepath)
 
-            snippet = CodeSnippets(title=title, filepath=filepath, keywords=keywords)
+            snippet = CodeSnippets(
+                title=title,
+                filepath=filepath,
+                keywords=keywords,
+                user_id=session["user_id"],
+            )
             db.session.add(snippet)
             db.session.commit()
+            flash("程式碼片段已新增。", "success")
             return redirect(url_for("code_management"))
         else:
-            return "檔案類型不支援，請上傳允許的檔案格式！", 400
+            flash("檔案類型不支援，請上傳允許的檔案格式！", "error")
 
-    snippets = CodeSnippets.query.all()
+    snippets = CodeSnippets.query.filter_by(user_id=session["user_id"]).all()
     return render_template("code.html", snippets=snippets)
 
 
@@ -194,11 +245,13 @@ def delete_code(id):
 def memo_management():
     if request.method == "POST":
         content = request.form["content"]
-        memo = Memo(content=content)
+        memo = Memo(content=content, user_id=session["user_id"])
         db.session.add(memo)
         db.session.commit()
+        flash("備忘錄已新增。", "success")
         return redirect(url_for("memo_management"))
-    memos = Memo.query.all()
+
+    memos = Memo.query.filter_by(user_id=session["user_id"]).all()
     return render_template("memo.html", memos=memos)
 
 
@@ -218,11 +271,18 @@ def project_management():
         name = request.form["name"]
         description = request.form.get("description", "")
         status = request.form.get("status", "待開始")
-        project = Projects(name=name, description=description, status=status)
+        project = Projects(
+            name=name,
+            description=description,
+            status=status,
+            user_id=session["user_id"],
+        )
         db.session.add(project)
         db.session.commit()
+        flash("專案已新增。", "success")
         return redirect(url_for("project_management"))
-    projects = Projects.query.all()
+
+    projects = Projects.query.filter_by(user_id=session["user_id"]).all()
     return render_template("projects.html", projects=projects)
 
 
@@ -245,17 +305,28 @@ def photo_management():
             filename = file.filename
             filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
             file.save(filepath)
-            photo = Photos(filename=filename, path=filepath, category=category)
+            photo = Photos(
+                filename=filename,
+                path=filepath,
+                category=category,
+                user_id=session["user_id"],
+            )
             db.session.add(photo)
             db.session.commit()
+            flash("相片已新增。", "success")
             return redirect(url_for("photo_management"))
-    photos = Photos.query.all()
+
+    photos = Photos.query.filter_by(user_id=session["user_id"]).all()
     return render_template("photos.html", photos=photos)
 
 
 @app.route("/photos/delete/<int:id>", methods=["POST"])
 def delete_photo(id):
     photo = Photos.query.get_or_404(id)
+    try:
+        os.remove(photo.path)  # 刪除檔案
+    except OSError as e:
+        print(f"Error: {e.strerror}")
     db.session.delete(photo)
     db.session.commit()
     flash("相片已刪除。", "success")
@@ -272,6 +343,11 @@ def reset_database():
     db.drop_all()
     db.create_all()
     return redirect(url_for("index"))
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("404.html"), 404
 
 
 if __name__ == "__main__":

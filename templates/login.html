@@ -16,7 +16,33 @@
         </form>
         <p>還沒有帳號嗎？<a href="/register">註冊</a></p>
         <hr>
-        <a href="{{ url_for('login_google') }}" class="btn btn-google">使用 Google 登入</a>
+        <a href="{{ url_for('login_google') }}" class="btn btn-google">
+            <img src="{{ url_for('static', filename='google_logo.png') }}" alt="Google Logo" class="google-logo">
+            使用 Google 登入
+        </a>
     </div>
+    <div id="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const flashMessages = document.getElementById("flash-messages");
+            if (flashMessages) {
+                setTimeout(() => {
+                    flashMessages.style.transition = "opacity 1s";
+                    flashMessages.style.opacity = "0";
+                    setTimeout(() => flashMessages.remove(), 1000); // 完全移除 DOM
+                }, 3000); // 3 秒後淡出
+            }
+        });
+    </script>
 </body>
 </html>
