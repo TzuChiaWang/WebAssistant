@@ -15,9 +15,12 @@
         <a href="{{ url_for('uploaded_file', filename=photo.filename) }}" target="_blank">{{ photo.filename }}</a> - {{ photo.category }}
         <br>
         <img src="{{ url_for('uploaded_file', filename=photo.filename) }}" alt="{{ photo.filename }}" class="photo-preview">
+        <div class="button-group">
+        <a href="{{ url_for('download_photo', filename=photo.filename) }}" class="btn btn-download">下載</a>
         <form action="{{ url_for('delete_photo', id=photo.id) }}" method="post" class="delete-form">
             <button type="submit">刪除</button>
         </form>
+    </div>
     </li>
     {% endfor %}
 </ul>

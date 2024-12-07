@@ -14,9 +14,12 @@
     {% for snippet in snippets %}
     <li>
         <a href="{{ url_for('uploaded_file', filename=snippet.filepath) }}" target="_blank">{{ snippet.title }}</a>
+        <div class="button-group">
+        <a href="{{ url_for('download_code', filename=snippet.filepath) }}" class="btn btn-download">下載</a>
         <form action="{{ url_for('delete_code', id=snippet.id) }}" method="post" class="delete-form">
             <button type="submit">刪除</button>
         </form>
+    </div>
     </li>
     {% endfor %}
 </ul>

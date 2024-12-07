@@ -117,7 +117,7 @@ def auth_callback():
     return redirect(url_for("index"))
 
 
-ALLOWED_EXTENSIONS = {"txt", "py", "js", "html", "css", "java", "cpp"}
+ALLOWED_EXTENSIONS = {"txt", "py", "js", "html", "css", "java", "xml", "json"}
 
 
 def allowed_file(filename):
@@ -214,7 +214,7 @@ def code_management():
 
             snippet = CodeSnippets(
                 title=title,
-                filepath=filepath,
+                filepath=filename,
                 keywords=keywords,
                 user_id=session["user_id"],
             )
@@ -227,6 +227,13 @@ def code_management():
 
     snippets = CodeSnippets.query.filter_by(user_id=session["user_id"]).all()
     return render_template("code.html", snippets=snippets)
+
+
+@app.route("/download/<filename>")
+def download_code(filename):
+    return send_from_directory(
+        app.config["UPLOAD_FOLDER"], filename, as_attachment=True
+    )
 
 
 @app.route("/code/delete/<int:id>", methods=["POST"])
@@ -334,6 +341,13 @@ def delete_photo(id):
 @app.route("/uploads/<filename>")
 def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+
+@app.route("/download/photo/<filename>")
+def download_photo(filename):
+    return send_from_directory(
+        app.config["UPLOAD_FOLDER"], filename, as_attachment=True
+    )
 
 
 @app.route("/reset", methods=["POST"])
