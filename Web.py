@@ -31,14 +31,17 @@ load_dotenv()
 oauth = OAuth(app)
 google = oauth.register(
     name="google",
-    client_id=os.getenv("GOOGLE_CLIENT_ID", "default_client_id"),
-    client_secret=os.getenv("GOOGLE_CLIENT_SECRET", "default_client_secret"),
-    access_token_url="https://accounts.google.com/o/oauth2/token",
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
     authorize_url="https://accounts.google.com/o/oauth2/auth",
     authorize_params=None,
-    authorize_redirect_uri="http://localhost:5000/auth/callback",
+    access_token_url="https://oauth2.googleapis.com/token",
+    refresh_token_url=None,
     api_base_url="https://www.googleapis.com/oauth2/v1/",
-    client_kwargs={"scope": "openid email"},
+    client_kwargs={
+        "scope": "openid profile email",
+    },
+    jwks_uri="https://www.googleapis.com/oauth2/v3/certs",  # 手動設置 JWKS URI
 )
 
 
@@ -94,6 +97,7 @@ def index():
     return render_template("index.html")
 
 
+
 # Google OAuth 登入
 @app.route("/login/google")
 def login_google():
@@ -104,17 +108,53 @@ def login_google():
 
 @app.route("/auth/callback")
 def auth_callback():
-    token = google.authorize_access_token()
-    resp = google.get("userinfo")
-    user_info = resp.json()
-    user = User.query.filter_by(username=user_info["email"]).first()
-    if not user:
-        user = User(username=user_info["email"], password="")
-        db.session.add(user)
-        db.session.commit()
-    session["user_id"] = user.id
-    flash("Google 登入成功！", "success")
-    return redirect(url_for("index"))
+    try:
+        token = google.authorize_access_token()
+        if not token:
+            flash("未能成功獲取授權憑證，請稍後再試！", "error")
+            return redirect(url_for("login"))
+
+        resp = google.get("userinfo")
+        user_info = resp.json()
+
+        # 查詢或創建用戶
+        user = User.query.filter_by(username=user_info["email"]).first()
+        if not user:
+            # 如果該用戶不存在，則創建新帳號
+            user = User(username=user_info["email"], password="")
+            db.session.add(user)
+            db.session.commit()
+
+        # 設置 session 並登入
+        session["user_id"] = user.id
+        session["username"] = user.username  # 設置 username 到 session
+        
+        # 創建新用戶的資料庫路徑
+        new_db_path = os.path.join(app.instance_path, f"{user.username}.db")
+
+        # 如果資料庫文件不存在，則創建一個新的資料庫
+        if not os.path.exists(new_db_path):
+            # 需要從模板資料庫複製過來
+            template_db_path = os.path.join(app.instance_path, "template.db")
+            try:
+                shutil.copyfile(template_db_path, new_db_path)
+                app.config["SQLALCHEMY_BINDS"][user.username] = f"sqlite:///{new_db_path}"
+                flash("帳號創建成功，並初始化資料庫！", "success")
+            except FileNotFoundError:
+                flash("模板資料庫不存在，請聯繫管理員。", "error")
+                return redirect(url_for("login"))
+        else:
+            app.config["SQLALCHEMY_BINDS"][user.username] = f"sqlite:///{new_db_path}"
+
+        flash("Google 登入成功！", "success")
+
+        # 跳轉到 index 頁面
+        return redirect(url_for("index"))
+    except Exception as e:
+        flash(f"登入過程中發生錯誤：{e}", "error")
+        return redirect(url_for("login"))
+
+
 
 
 ALLOWED_EXTENSIONS = {"txt", "py", "js", "html", "css", "java", "xml", "json"}
@@ -160,12 +200,18 @@ def login():
         password = request.form["password"]
         user = User.query.filter_by(username=username, password=password).first()
         if user:
+            # 設置 session 並確保成功登入
             session["user_id"] = user.id
             session["username"] = username
             flash("登入成功！", "success")
+            print(f"User ID in session: {session['user_id']}")  # 偵錯輸出 session
+            
+            # 強制跳轉到 index 頁面
             return redirect(url_for("index"))
         flash("登入失敗，請檢查您的帳號和密碼。", "error")
     return render_template("login.html")
+
+
 
 
 @app.before_request
