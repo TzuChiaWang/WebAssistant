@@ -1,5 +1,6 @@
 import shutil
-from dotenv import load_dotenv
+
+##from dotenv import load_dotenv
 from flask import (
     Flask,
     request,
@@ -26,13 +27,15 @@ app.secret_key = "supersecretkey"
 db = SQLAlchemy(app)
 
 # 載入環境變數
-load_dotenv()
+##load_dotenv()
 # 配置 OAuth
 oauth = OAuth(app)
 google = oauth.register(
     name="google",
-    client_id=os.getenv("GOOGLE_CLIENT_ID"),
-    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    ##client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    ##client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
     authorize_url="https://accounts.google.com/o/oauth2/auth",
     authorize_params=None,
     access_token_url="https://oauth2.googleapis.com/token",
@@ -97,7 +100,6 @@ def index():
     return render_template("index.html")
 
 
-
 # Google OAuth 登入
 @app.route("/login/google")
 def login_google():
@@ -128,7 +130,7 @@ def auth_callback():
         # 設置 session 並登入
         session["user_id"] = user.id
         session["username"] = user.username  # 設置 username 到 session
-        
+
         # 創建新用戶的資料庫路徑
         new_db_path = os.path.join(app.instance_path, f"{user.username}.db")
 
@@ -138,7 +140,9 @@ def auth_callback():
             template_db_path = os.path.join(app.instance_path, "template.db")
             try:
                 shutil.copyfile(template_db_path, new_db_path)
-                app.config["SQLALCHEMY_BINDS"][user.username] = f"sqlite:///{new_db_path}"
+                app.config["SQLALCHEMY_BINDS"][
+                    user.username
+                ] = f"sqlite:///{new_db_path}"
                 flash("帳號創建成功，並初始化資料庫！", "success")
             except FileNotFoundError:
                 flash("模板資料庫不存在，請聯繫管理員。", "error")
@@ -153,8 +157,6 @@ def auth_callback():
     except Exception as e:
         flash(f"登入過程中發生錯誤：{e}", "error")
         return redirect(url_for("login"))
-
-
 
 
 ALLOWED_EXTENSIONS = {"txt", "py", "js", "html", "css", "java", "xml", "json"}
@@ -205,13 +207,11 @@ def login():
             session["username"] = username
             flash("登入成功！", "success")
             print(f"User ID in session: {session['user_id']}")  # 偵錯輸出 session
-            
+
             # 強制跳轉到 index 頁面
             return redirect(url_for("index"))
         flash("登入失敗，請檢查您的帳號和密碼。", "error")
     return render_template("login.html")
-
-
 
 
 @app.before_request
