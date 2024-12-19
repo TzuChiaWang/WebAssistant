@@ -22,7 +22,7 @@ from datetime import datetime
 app = Flask(__name__)
 app.config.from_object("config.Config")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["UPLOAD_FOLDER"] = "/tmp/uploads"
+app.config["UPLOAD_FOLDER"] = "/tmp"
 app.secret_key = "supersecretkey"
 db = SQLAlchemy(app)
 
@@ -44,7 +44,7 @@ google = oauth.register(
     client_kwargs={
         "scope": "openid profile email",
     },
-    redirect_uri="https://webassistant-9tq4.onrender.com",  # 替换为你的回调 URI
+    redirect_uri="https://webassistant-9tq4.onrender.com",
     jwks_uri="https://www.googleapis.com/oauth2/v3/certs",  # 手動設置 JWKS URI
 )
 
@@ -160,7 +160,73 @@ def auth_callback():
         return redirect(url_for("login"))
 
 
-ALLOWED_EXTENSIONS = {"txt", "py", "js", "html", "css", "java", "xml", "json"}
+ALLOWED_EXTENSIONS = {
+    "txt",
+    "py",
+    "js",
+    "html",
+    "css",
+    "java",
+    "xml",
+    "json",
+    "md",
+    "csv",
+    "sql",
+    "go",
+    "yml",
+    "c",
+    "cpp",
+    "rb",
+    "php",
+    "sh",
+    "bat",
+    "pl",
+    "swift",
+    "kt",
+    "rs",
+    "r",
+    "m",
+    "vb",
+    "cs",
+    "erl",
+    "hs",
+    "jl",
+    "lua",
+    "ts",
+    "dart",
+    "scala",
+    "groovy",
+    "f90",
+    "f95",
+    "f03",
+    "f08",
+    "f18",
+    "ml",
+    "clj",
+    "cljs",
+    "cljc",
+    "edn",
+    "elm",
+    "ex",
+    "exs",
+    "fs",
+    "fsi",
+    "fsx",
+    "fsscript",
+    "hx",
+    "idr",
+    "ipynb",
+    "lisp",
+    "scm",
+    "cl",
+    "rkt",
+    "sas",
+    "sql",
+    "tcl",
+    "v",
+    "vhdl",
+    "zig",
+}
 
 
 def allowed_file(filename):
@@ -233,7 +299,7 @@ def before_request():
             ]
             db.engine.dispose()  # 重新連接資料庫
         else:
-            flash("無法找到對應的資料庫。", "error")
+            ##flash("無法找到對應的資料庫。", "error")
             return redirect(url_for("login"))
     else:
         return redirect(url_for("login"))
