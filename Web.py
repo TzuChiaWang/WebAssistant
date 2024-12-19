@@ -22,7 +22,7 @@ from datetime import datetime
 app = Flask(__name__)
 app.config.from_object("config.Config")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["UPLOAD_FOLDER"] = "uploads"
+app.config["UPLOAD_FOLDER"] = "/tmp/uploads"
 app.secret_key = "supersecretkey"
 db = SQLAlchemy(app)
 
@@ -44,6 +44,7 @@ google = oauth.register(
     client_kwargs={
         "scope": "openid profile email",
     },
+    redirect_uri="https://webassistant-9tq4.onrender.com",  # 替换为你的回调 URI
     jwks_uri="https://www.googleapis.com/oauth2/v3/certs",  # 手動設置 JWKS URI
 )
 
