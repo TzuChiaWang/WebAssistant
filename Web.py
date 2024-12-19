@@ -44,6 +44,7 @@ google = oauth.register(
     client_kwargs={
         "scope": "openid profile email",
     },
+    redirect_uri="https://webassistant-9tq4.onrender.com",
     jwks_uri="https://www.googleapis.com/oauth2/v3/certs",  # 手動設置 JWKS URI
 )
 
